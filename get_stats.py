@@ -57,13 +57,13 @@ def load_processed_data(path="data/processed_recipes.csv"):
 
 def preview_embedding_space(df, sample_size=1000):
     sample = df.sample(sample_size, random_state=42)
-    texts = sample['title'] + ' ' + sample['ingredients'].apply(lambda x: ' '.join(x))
+    texts = sample['title']
     vectorizer = TfidfVectorizer(max_features=500)
     X = vectorizer.fit_transform(texts)
     pca = PCA(n_components=2)
     reduced = pca.fit_transform(X.toarray())
     plt.scatter(reduced[:,0], reduced[:,1], alpha=0.5)
-    plt.title("TF-IDF Embedding Preview (Recipes)")
+    plt.title(f"TF-IDF Embedding Preview ({str(sample_size)} Recipes)")
     plt.show()
 
 def main():
