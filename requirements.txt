@@ -2,3 +2,6 @@ pandas==2.1.4
 numpy==1.24.3
 tqdm==4.66.1
 kaggle==1.5.16
+seaborn
+matplotlib
+scikit-learn

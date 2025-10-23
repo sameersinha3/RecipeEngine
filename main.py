@@ -54,18 +54,6 @@ def main():
                 output_files['json'] = json_path
         else:
             output_files = collector.run_full_pipeline(output_format=args.output_format, limit=args.limit)
-        
-        print("\n" + "="*60)
-        print("RECIPE DATA COLLECTION COMPLETE!")
-        print("="*60)
-        print(f"Output files created:")
-        for format_type, filepath in output_files.items():
-            print(f"  {format_type.upper()}: {filepath}")
-        
-        if args.skip_download:
-            recipes_df, reviews_df = collector.load_raw_data()
-            processed_df = collector.process_recipes(recipes_df, reviews_df, limit=args.limit)
-        else:
             import pandas as pd
             if 'json' in output_files:
                 import json
@@ -73,6 +61,13 @@ def main():
                     processed_df = pd.DataFrame(json.load(f))
             else:
                 processed_df = pd.read_csv(output_files['csv'])
+        
+        print("\n" + "="*60)
+        print("RECIPE DATA COLLECTION COMPLETE!")
+        print("="*60)
+        print(f"Output files created:")
+        for format_type, filepath in output_files.items():
+            print(f"  {format_type.upper()}: {filepath}")
         
         print(f"\nDataset Statistics:")
         print(f"  Total recipes: {len(processed_df):,}")
