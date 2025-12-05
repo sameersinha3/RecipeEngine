@@ -5,3 +5,4 @@ kaggle==1.5.16
 seaborn
 matplotlib
 scikit-learn
+Flask==3.0.0
