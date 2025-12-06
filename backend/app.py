@@ -12,6 +12,7 @@ if WORKSPACE_ROOT not in sys.path:
 	sys.path.insert(0, WORKSPACE_ROOT)
 
 from tfidf import TFIDF
+from w2v import W2V
 
 app = Flask(__name__)
 
@@ -19,6 +20,8 @@ data_path = os.path.join(WORKSPACE_ROOT, "data", "processed_recipes.csv")
 df = pd.read_csv(data_path)
 engine_tfidf = TFIDF(df)
 engine_tfidf.build_vocabulary()
+engine_w2v = W2V(df)
+
 n = df.shape[0]
 
 def rrf_fusion(scores_list: List[np.ndarray], k: int = 60) -> np.ndarray:
@@ -33,11 +36,6 @@ def rrf_fusion(scores_list: List[np.ndarray], k: int = 60) -> np.ndarray:
 
 	return fused
 
-def get_word2vec_scores(query: str) -> np.ndarray:
-    # Placeholder
-    scores = np.random.rand(n)
-    return scores
-
 @app.route("/search", methods=["POST"])
 def search() -> Any:
 	payload = request.get_json(silent=True) or {}
@@ -49,7 +47,7 @@ def search() -> Any:
 
 
 	tfidf_scores = engine_tfidf.execute_search_TF_IDF(query, applyBM25_and_IDF=True)
-	w2v_scores = get_word2vec_scores(query)
+	w2v_scores = engine_w2v.rank_documents(query)
 	fused = rrf_fusion([tfidf_scores, w2v_scores])
 
 	# Return results

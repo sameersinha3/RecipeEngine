@@ -5,6 +5,13 @@ import os
 import re
 from typing import Dict, List, Optional, Tuple
 from tqdm import tqdm
+
+try:
+    from urllib3.response import HTTPResponse
+    HTTPResponse.getheaders = lambda self: self.headers.items()
+except ImportError:
+    pass
+
 import kaggle
 from kaggle.api.kaggle_api_extended import KaggleApi
 
@@ -20,7 +27,7 @@ class FoodComDataCollector:
     def download_dataset(self) -> bool:
         try:
             print("Downloading Food.com dataset from Kaggle...")
-            kaggle.api.dataset_download_files(
+            self.api.dataset_download_files(
                 'irkaal/foodcom-recipes-and-reviews',
                 path=self.data_dir,
                 unzip=True
