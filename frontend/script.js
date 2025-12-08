@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'http://localhost:5001';
 const SEARCH_ENDPOINT = '/api/search';
 
 const searchInput = document.getElementById('searchInput');
@@ -24,19 +24,25 @@ async function performSearch() {
     showLoading();
 
     try {
-        // const response = await fetch(`${API_BASE_URL}${SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}`);
-        // const data = await response.json();
-        
-        // For now, show a placeholder message
-        setTimeout(() => {
-            showEmpty('Backend API not yet connected. Results will appear here once the backend is ready.');
-        }, 500);
+        const response = await fetch(`${API_BASE_URL}${SEARCH_ENDPOINT}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    top_k: 20
+                }),
+            }
+        );
 
-        // if (data.error) {
-        //     showError(data.error);
-        // } else {
-        //     displayResults(data.results || []);
-        // }
+        const data = await response.json();
+
+        if (data.error) {
+            showError(data.error);
+        } else {
+            displayResults(data.results || []);
+        }
 
     } catch (error) {
         console.error('Search error:', error);
