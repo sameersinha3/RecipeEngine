@@ -9,3 +9,4 @@ scikit-learn
 Flask==3.0.0
 flask-cors==4.0.0
 gensim>=4.3.1,<5.0.0
+faiss-cpu>=1.7.4

@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 import math
 from collections import Counter
+from typing import Optional
 from tqdm import tqdm
+import faiss
 
 class TFIDF:
     vocab = np.array([])
@@ -12,6 +14,8 @@ class TFIDF:
     def __init__(self, dataset: pd.DataFrame):
         self.dataset = dataset.copy().reset_index(drop=True)
         self.IDF = None  # Will be computed once after vocabulary is built
+        self.doc_vectors = None  # Pre-computed TF-IDF vectors for all documents
+        self.index = None
         self.clean_text()
 
     # Turn items/lists into a valid string
@@ -98,6 +102,29 @@ class TFIDF:
             else:
                 self.IDF[idx] = math.log((M + 1) / df)
 
+    def build_document_vectors(self):
+        if self.doc_vectors is not None:
+            return
+        
+        print("  Pre-computing TF-IDF document vectors...", flush=True)
+        M = len(self.dataset)
+        texts = self.dataset["text"].tolist()
+        
+        doc_vectors = []
+        for text in tqdm(texts, desc="  Computing doc vectors", unit=" docs", leave=False):
+            vec = self.text2TFIDF(text, applyBM25_and_IDF=True)
+            doc_vectors.append(vec)
+        
+        self.doc_vectors = np.array(doc_vectors).astype('float32')
+        
+        # Build FAISS index
+        print("  Building FAISS index for TF-IDF...", end=" ", flush=True)
+        vector_dim = self.doc_vectors.shape[1]
+        self.index = faiss.IndexFlatIP(vector_dim)
+        
+        faiss.normalize_L2(self.doc_vectors)
+        self.index.add(self.doc_vectors)
+
     def text2TFIDF(self, text: str, applyBM25_and_IDF: bool = False):
         words = text.lower().split()
         tfidfVector = np.zeros(self.vocab.size)
@@ -131,26 +158,36 @@ class TFIDF:
         # Return the relevance 
         return np.dot(q, d)
 
-    def execute_search_TF_IDF(self, query: str, applyBM25_and_IDF: bool = False):
-        self.adapt_vocab_query(query)
-
-        # Ensure IDF is computed (only once at initialization)
+    def execute_search_TF_IDF(self, query: str, applyBM25_and_IDF: bool = False, top_k: Optional[int] = None):
         if self.IDF is None:
             self.compute_IDF()
+        if self.doc_vectors is None:
+            self.build_document_vectors()
 
-        # Pre-compute query vector once
-        query_vector = self.text2TFIDF(query, applyBM25_and_IDF)
 
-        # Vectorized computation: compute all document vectors at once
-        texts = self.dataset["text"].tolist()
+        original_vocab = self.vocab.copy()
         
-        # Compute all document vectors
-        doc_vectors = np.array([
-            self.text2TFIDF(text, applyBM25_and_IDF) 
-            for text in texts
-        ])
+        # Build query vector using original vocab (so dimension matches doc_vectors)
+        words = query.lower().split()
+        query_vector = np.zeros(original_vocab.size)
         
-        # Vectorized dot product: compute all similarities at once
-        relevances = np.dot(doc_vectors, query_vector)
+        for idx, word in enumerate(original_vocab):
+            tf = words.count(word)
+            if tf > 0:
+                if applyBM25_and_IDF:
+                    y = ((self.K + 1) * tf) / (tf + self.K)
+                    query_vector[idx] = y * self.IDF[idx]
+                else:
+                    query_vector[idx] = tf
+        
+        query_vector = query_vector.astype('float32').reshape(1, -1)
+        faiss.normalize_L2(query_vector)
 
-        return relevances
+        if top_k is not None:
+            # Use FAISS to get only top-k
+            top_k = min(top_k, len(self.doc_vectors))
+            distances, indices = self.index.search(query_vector, top_k)
+            return distances[0], indices[0].astype(int)
+        else:
+            distances, _ = self.index.search(query_vector, len(self.doc_vectors))
+            return distances[0]

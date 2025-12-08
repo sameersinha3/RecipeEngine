@@ -4,6 +4,7 @@ from typing import Optional
 import gensim.downloader as api
 import logging
 from tqdm import tqdm
+import faiss
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,6 +16,7 @@ class W2V:
         self.dataset = dataset.copy().reset_index(drop=True)
         self.model = None
         self.doc_vectors = None
+        self.index = None 
 
         self._load_pretrained_model(model_name)
 
@@ -84,9 +86,17 @@ class W2V:
 
             self.doc_vectors.append(doc_vec)
 
-        self.doc_vectors = np.array(self.doc_vectors)
+        self.doc_vectors = np.array(self.doc_vectors).astype('float32')
         logger.info(f"Computed vectors for {len(self.doc_vectors)} documents")
         print(f"  Computed {len(self.doc_vectors):,} document vectors")
+        
+        # Build FAISS index for fast search
+        print(f"  Building FAISS index...", end=" ", flush=True)
+        vector_dim = self.doc_vectors.shape[1]
+        self.index = faiss.IndexFlatIP(vector_dim)
+        
+        faiss.normalize_L2(self.doc_vectors)
+        self.index.add(self.doc_vectors)
 
     def get_query_vector(self, query: str) -> np.ndarray:
         tokens = self.preprocess_text(query)
@@ -117,26 +127,25 @@ class W2V:
 
         return np.dot(vec1, vec2) / (norm1 * norm2)
 
-    def rank_documents(self, query: str) -> np.ndarray:
+    def rank_documents(self, query: str, top_k: Optional[int] = None):
         query_vec = self.get_query_vector(query)
         
         if query_vec is None or np.linalg.norm(query_vec) == 0:
-            return np.zeros(len(self.doc_vectors))
+            if top_k is None:
+                return np.zeros(len(self.doc_vectors))
+            else:
+                return np.zeros(top_k), np.zeros(top_k, dtype=int)
         
-        # Vectorized cosine similarity: normalize query once
-        query_norm = np.linalg.norm(query_vec)
-        query_vec_norm = query_vec / query_norm
+        query_vec = query_vec.astype('float32').reshape(1, -1)
+        faiss.normalize_L2(query_vec)
         
-        # Compute all dot products at once (vectorized)
-        dot_products = np.dot(self.doc_vectors, query_vec_norm)
-        
-        # Compute norms for all documents (vectorized)
-        doc_norms = np.linalg.norm(self.doc_vectors, axis=1)
-        
-        # Avoid division by zero
-        doc_norms[doc_norms == 0] = 1
-        
-        # Cosine similarities (vectorized)
-        scores = dot_products / doc_norms
-        
-        return scores
+        if top_k is not None:
+            # Use FAISS to get only top-k efficiently
+            top_k = min(top_k, len(self.doc_vectors))
+            distances, indices = self.index.search(query_vec, top_k)
+            # Return (scores, indices) tuple for top-k
+            return distances[0], indices[0].astype(int)
+        else:
+            # Compute all scores (for backward compatibility)
+            distances, _ = self.index.search(query_vec, len(self.doc_vectors))
+            return distances[0]
