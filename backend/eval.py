@@ -51,18 +51,13 @@ def format_result(idx: int, row: pd.Series) -> str:
 def main(queries: List[str]):
     if not queries:
         queries = [
-            "chocolate cake",
-            "vegan pasta",
-            "gluten free cookies",
-            "chicken curry",
-            "beef stew",
-            "vegetarian lasagna",
-            "pizza",
-            "salad",
-            "soup",
-            "pasta",
+            "healthy snacks",
+            "comfort food",
+            "low-carb",
+            "budget meals",
+            "vegan protein",
+            "kid-friendly recipes",
         ]
-
     print("Loading data...")
     df = load_data(limit=10000)
     n = len(df)
