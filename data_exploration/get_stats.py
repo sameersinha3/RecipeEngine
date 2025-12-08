@@ -154,7 +154,7 @@ def analyze_bias_and_coverage(df):
     print(f"  This indicates {'high' if concentration_ratio > 0.3 else 'moderate' if concentration_ratio > 0.2 else 'low'} concentration")
 
 
-def load_processed_data(path="data/processed_recipes.csv"):
+def load_processed_data(path="../data/processed_recipes.csv"):
     df = pd.read_csv(path)
     for col in ['ingredients', 'instructions', 'tags']:
         df[col] = df[col].fillna('').apply(

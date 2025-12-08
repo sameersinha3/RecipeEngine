@@ -17,7 +17,7 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 
 
 class FoodComDataCollector:    
-    def __init__(self, data_dir: str = "data"):
+    def __init__(self, data_dir: str = "../data"):
         self.data_dir = data_dir
         self.api = KaggleApi()
         self.api.authenticate()
