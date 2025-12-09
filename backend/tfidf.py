@@ -13,12 +13,11 @@ class TFIDF:
 
     def __init__(self, dataset: pd.DataFrame):
         self.dataset = dataset.copy().reset_index(drop=True)
-        self.IDF = None  # Will be computed once after vocabulary is built
-        self.doc_vectors = None  # Pre-computed TF-IDF vectors for all documents
+        self.IDF = None  
+        self.doc_vectors = None 
         self.index = None
         self.clean_text()
 
-    # Turn items/lists into a valid string
     def flatten(self, val):
         if isinstance(val, list):
             return " ".join(map(str, val))
@@ -57,11 +56,9 @@ class TFIDF:
         
         self.vocab = vocab
 
-    # include words from the query into the vocabulary
     def adapt_vocab_query(self, query):
         vocab = list(self.vocab)
 
-        #Split  words
         query_list = set(query.lower().split())
 
         for word in query_list:
@@ -72,31 +69,25 @@ class TFIDF:
 
     def compute_IDF(self):
         if self.IDF is not None:
-            return  # Already computed
+            return 
         
         M = self.dataset.shape[0]
         collection = self.dataset["text"]
 
-        # Create a set of vocabulary words for fast lookup
         vocab_set = set(self.vocab)
-        
-        # Count document frequency for each word in a single pass
-        # doc_freq[word] = number of documents containing that word
+
         doc_freq = {word: 0 for word in self.vocab}
         
-        # Single pass: iterate through documents once
         for doc in tqdm(collection, desc="  Computing IDF", unit=" docs"):
-            # Get unique words in this document
             doc_words = set(doc.split())
             
-            # Count which vocab words appear in this document
             for word in doc_words:
                 if word in vocab_set:
                     doc_freq[word] += 1
 
         self.IDF = np.zeros(self.vocab.size)
         for idx, word in enumerate(self.vocab):
-            df = doc_freq[word]  # document frequency
+            df = doc_freq[word]  
             if df == 0:
                 self.IDF[idx] = 0.0
             else:
@@ -117,7 +108,6 @@ class TFIDF:
         
         self.doc_vectors = np.array(doc_vectors).astype('float32')
         
-        # Build FAISS index
         print("  Building FAISS index for TF-IDF...", end=" ", flush=True)
         vector_dim = self.doc_vectors.shape[1]
         self.index = faiss.IndexFlatIP(vector_dim)
@@ -129,7 +119,6 @@ class TFIDF:
         words = text.lower().split()
         tfidfVector = np.zeros(self.vocab.size)
 
-        # Store original vocab size to handle expanded vocab
         original_vocab_size = len(self.IDF) if self.IDF is not None else len(self.vocab)
 
         for idx, word in enumerate(self.vocab):
@@ -146,7 +135,6 @@ class TFIDF:
                 if idx < original_vocab_size:
                     tfidfVector[idx] = y * self.IDF[idx]
                 else:
-                    # New query words not in original vocab get IDF = 0
                     tfidfVector[idx] = 0
 
         return tfidfVector
@@ -155,7 +143,6 @@ class TFIDF:
         q = self.text2TFIDF(query)
         d = self.text2TFIDF(doc, applyBM25_and_IDF)
 
-        # Return the relevance 
         return np.dot(q, d)
 
     def execute_search_TF_IDF(self, query: str, applyBM25_and_IDF: bool = False, top_k: Optional[int] = None):
@@ -167,7 +154,6 @@ class TFIDF:
 
         original_vocab = self.vocab.copy()
         
-        # Build query vector using original vocab (so dimension matches doc_vectors)
         words = query.lower().split()
         query_vector = np.zeros(original_vocab.size)
         
@@ -184,7 +170,6 @@ class TFIDF:
         faiss.normalize_L2(query_vector)
 
         if top_k is not None:
-            # Use FAISS to get only top-k
             top_k = min(top_k, len(self.doc_vectors))
             distances, indices = self.index.search(query_vector, top_k)
             return distances[0], indices[0].astype(int)

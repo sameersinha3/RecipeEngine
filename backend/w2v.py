@@ -69,7 +69,6 @@ class W2V:
 
         print(f"  Computing vectors for {len(documents):,} documents...", flush=True)
         for tokens in tqdm(documents, desc="  Computing document vectors", unit=" docs"):
-            # Get vectors for all words in document that exist in vocabulary
             vectors = []
             for token in tokens:
                 try:
@@ -90,7 +89,6 @@ class W2V:
         logger.info(f"Computed vectors for {len(self.doc_vectors)} documents")
         print(f"  Computed {len(self.doc_vectors):,} document vectors")
         
-        # Build FAISS index for fast search
         print(f"  Building FAISS index...", end=" ", flush=True)
         vector_dim = self.doc_vectors.shape[1]
         self.index = faiss.IndexFlatIP(vector_dim)
@@ -140,12 +138,9 @@ class W2V:
         faiss.normalize_L2(query_vec)
         
         if top_k is not None:
-            # Use FAISS to get only top-k efficiently
             top_k = min(top_k, len(self.doc_vectors))
             distances, indices = self.index.search(query_vec, top_k)
-            # Return (scores, indices) tuple for top-k
             return distances[0], indices[0].astype(int)
         else:
-            # Compute all scores (for backward compatibility)
             distances, _ = self.index.search(query_vec, len(self.doc_vectors))
             return distances[0]

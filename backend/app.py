@@ -17,7 +17,7 @@ from tfidf import TFIDF
 from w2v import W2V
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app) 
 
 print("=" * 60)
 print("Initializing Recipe Search Engine...")
@@ -64,31 +64,24 @@ def perform_search(query: str, top_k: int = 20) -> List[Dict[str, Any]]:
 	# Use FAISS to get top 1000 candidates from each method
 	candidate_size = 1000
 	
-	# Get top candidates from TF-IDF using FAISS
 	tfidf_similarities, tfidf_candidate_indices = engine_tfidf.execute_search_TF_IDF(
 		query, applyBM25_and_IDF=True, top_k=candidate_size
 	)
 	
-	# Get top candidates from W2V using FAISS
 	w2v_similarities, w2v_candidate_indices = engine_w2v.rank_documents(query, top_k=candidate_size)
 	
-	# Merge candidate sets (union of top candidates from both methods)
 	candidate_indices = np.unique(np.concatenate([tfidf_candidate_indices, w2v_candidate_indices]))
 	
-	# Create score arrays for candidates only
 	tfidf_candidate_scores = np.zeros(len(candidate_indices))
 	w2v_candidate_scores = np.zeros(len(candidate_indices))
 	
-	# Map FAISS results to candidate indices
 	tfidf_score_map = dict(zip(tfidf_candidate_indices, tfidf_similarities))
 	w2v_score_map = dict(zip(w2v_candidate_indices, w2v_similarities))
 	
-	# Fill in scores for candidates
 	for i, candidate_idx in enumerate(candidate_indices):
 		tfidf_candidate_scores[i] = tfidf_score_map.get(candidate_idx, 0.0)
 		w2v_candidate_scores[i] = w2v_score_map.get(candidate_idx, 0.0)
 	
-	# RRF fusion on candidate set only (much smaller than full dataset)
 	candidate_fused = np.zeros(len(candidate_indices))
 	k = 60
 	
@@ -98,12 +91,10 @@ def perform_search(query: str, top_k: int = 20) -> List[Dict[str, Any]]:
 		ranks[order] = np.arange(1, len(candidate_indices) + 1)
 		candidate_fused += 1.0 / (k + ranks)
 	
-	# Get top-k from fused candidate scores
 	top_candidate_idx = np.argsort(candidate_fused)[::-1][:top_k]
 	order = candidate_indices[top_candidate_idx]
 	results: List[Dict[str, Any]] = []
 	
-	# Helper function to handle NaN values for JSON serialization
 	def clean_value(val):
 		if pd.isna(val):
 			return None

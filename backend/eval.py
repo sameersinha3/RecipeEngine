@@ -5,13 +5,12 @@ from typing import List, Dict, Any
 import numpy as np
 import pandas as pd
 
-# Ensure imports work when running directly
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 if WORKSPACE_ROOT not in sys.path:
     sys.path.insert(0, WORKSPACE_ROOT)
 
-from backend.tfidf import TFIDF  # type: ignore
-from backend.w2v import W2V      # type: ignore
+from backend.tfidf import TFIDF 
+from backend.w2v import W2V
 
 
 def rrf_fusion(scores_list: List[np.ndarray], k: int = 60) -> np.ndarray:
@@ -78,27 +77,21 @@ def main(queries: List[str]):
         print(f"Query: {q}")
         print("=" * 80)
 
-        # Get top 1000 from each method using FAISS
         tfidf_similarities, tfidf_indices = tfidf_engine.execute_search_TF_IDF(q, applyBM25_and_IDF=True, top_k=1000)
         w2v_similarities, w2v_indices = w2v_engine.rank_documents(q, top_k=1000)
         
-        # Merge candidate sets
         candidate_indices = np.unique(np.concatenate([tfidf_indices, w2v_indices]))
         
-        # Create score arrays for candidates
         tfidf_candidate_scores = np.zeros(len(candidate_indices))
         w2v_candidate_scores = np.zeros(len(candidate_indices))
         
-        # Map FAISS results to candidate indices
         tfidf_score_map = dict(zip(tfidf_indices, tfidf_similarities))
         w2v_score_map = dict(zip(w2v_indices, w2v_similarities))
         
-        # Fill in scores
         for i, candidate_idx in enumerate(candidate_indices):
             tfidf_candidate_scores[i] = tfidf_score_map.get(candidate_idx, 0.0)
             w2v_candidate_scores[i] = w2v_score_map.get(candidate_idx, 0.0)
         
-        # RRF fusion on candidate set
         candidate_fused = np.zeros(len(candidate_indices))
         k = 60
         for scores in [tfidf_candidate_scores, w2v_candidate_scores]:
@@ -107,17 +100,14 @@ def main(queries: List[str]):
             ranks[order] = np.arange(1, len(candidate_indices) + 1)
             candidate_fused += 1.0 / (k + ranks)
         
-        # Get top 10 from fused scores
         top_candidate_idx = np.argsort(candidate_fused)[::-1][:10]
         top_indices = candidate_indices[top_candidate_idx]
         
-        # Create full score arrays for display (only top 1000 from each)
         tfidf_full_scores = np.zeros(n)
         w2v_full_scores = np.zeros(n)
         tfidf_full_scores[tfidf_indices] = tfidf_similarities
         w2v_full_scores[w2v_indices] = w2v_similarities
         
-        # Create fused full scores for display
         fused_full = np.zeros(n)
         for scores in [tfidf_full_scores, w2v_full_scores]:
             order = np.argsort(scores)[::-1]
@@ -127,10 +117,8 @@ def main(queries: List[str]):
 
         def show_top(label: str, scores: np.ndarray, indices: np.ndarray = None):
             if indices is not None:
-                # Show from specific indices (for RRF)
                 order = indices[:10]
             else:
-                # Show top 10 from scores
                 order = np.argsort(scores)[::-1][:10]
             print(f"\nTop 10 - {label}")
             for rank, idx in enumerate(order, start=1):

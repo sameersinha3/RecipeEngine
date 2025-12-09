@@ -5,4 +5,4 @@ To run, just run
 ./run_server.sh # (This may take a while to load the embeddings)
 ```
 
-And open localhost:5051 to view the server
+And open localhost:5051 to view the search engine frontend
